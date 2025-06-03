@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id   String @id @default(uuid())
+  name String
+
+  parentId String? // foreign key đến category cha
+  parent   Category?  @relation("CategoryToChildren", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryToChildren") // tất cả category con
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  Product   Product[]
+}
+
+model Product {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  price       Float
+  createdAt   DateTime?     @default(now())
+  categoryId  String?
+  status      Boolean?      @default(true)
+  updatedAt   DateTime?     @default(now()) @updatedAt
+  sold        Int?
+  stock       Int?
+  media       Media[]
+  OrderDetail OrderDetail[]
+  category    Category?     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+}
+
+model Post {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  thumbnail String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model OrderDetail {
+  id        String  @id @default(uuid())
+  orderId   String
+  productId String
+  quantity  Int
+  price     Float
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model Media {
+  id        String  @id @default(uuid())
+  url       String
+  type      String
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+}
+
+model ShippingInfo {
+  id         String   @id @default(uuid())
+  address    String
+  city       String
+  postalCode String
+  country    String
+  phone      String
+  orderId    String   @unique
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  order      Order    @relation(fields: [orderId], references: [id])
+}
+
+model Order {
+  id           String        @id @default(uuid())
+  userId       String
+  totalAmount  Float
+  status       OrderStatus   @default(pending)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  user         User          @relation(fields: [userId], references: [id])
+  orderDetails OrderDetail[]
+  shippingInfo ShippingInfo?
+}
+
+enum OrderStatus {
+  pending
+  paid
+  shipped
+  cancelled
+}
