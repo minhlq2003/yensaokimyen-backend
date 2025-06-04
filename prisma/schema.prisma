@@ -9,99 +9,137 @@ datasource db {
 }
 
 model Category {
-  id   String @id @default(uuid())
-  name String
+  id        Int        @id @default(autoincrement())
+  name      String
+  parentId  Int?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  parent    Category?  @relation("CategoryToChildren", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryToChildren")
+  products  Product[]
+}
 
-  parentId String? // foreign key đến category cha
-  parent   Category?  @relation("CategoryToChildren", fields: [parentId], references: [id])
-  children Category[] @relation("CategoryToChildren") // tất cả category con
+model ProductImages {
+  id        Int      @id @default(autoincrement())
+  productId Int?
+  url       String?  @db.VarChar(255)
+  product   Product? @relation(fields: [productId], references: [id], onUpdate: NoAction, map: "product_images_ibfk_2")
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  Product   Product[]
+  @@index([productId], map: "idx_product_images_product_id")
 }
 
 model Product {
-  id          String        @id @default(uuid())
+  id          Int             @id @default(autoincrement())
   name        String
   description String?
   price       Float
-  createdAt   DateTime?     @default(now())
-  categoryId  String?
-  status      Boolean?      @default(true)
-  updatedAt   DateTime?     @default(now()) @updatedAt
+  createdAt   DateTime?       @default(now())
+  categoryId  Int?
+  status      Boolean?        @default(true)
+  updatedAt   DateTime?       @default(now()) @updatedAt
   sold        Int?
   stock       Int?
-  media       Media[]
-  OrderDetail OrderDetail[]
-  category    Category?     @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  detail      String?         @db.VarChar
+  orderItems  OrderItem[]
+  category    Category?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images      ProductImages[]
+}
+
+model Users {
+  id          Int          @id @default(autoincrement())
+  username    String       @db.VarChar(255)
+  password    String       @db.VarChar(255)
+  name        String?      @db.VarChar(255)
+  email       String?      @db.VarChar(255)
+  avatar      String?      @db.VarChar(255)
+  status      Int?
+  role        String?      @default("member") @db.VarChar(50)
+  addresses   Address[]
+  attachments Attachment[]
+  posts       Post[]
+}
+
+model Address {
+  id            Int     @id @default(autoincrement())
+  userId        Int?
+  address       String?
+  receiverName  String? @db.VarChar(255)
+  receiverPhone String? @db.VarChar(20)
+  user          Users?  @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "addresses_ibfk_1")
+
+  @@index([userId], map: "idx_addresses_user_id")
 }
 
 model Post {
-  id        String   @id @default(uuid())
-  title     String
-  content   String
-  thumbnail String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              Int         @id @default(autoincrement())
+  title           String      @db.VarChar(100)
+  slug            String      @db.VarChar(255)
+  content         String
+  category        String?     @db.VarChar(100)
+  createdAt       DateTime?   @default(now()) @db.Timestamp(0)
+  updatedAt       DateTime?   @db.Timestamp(0)
+  status          PostStatus? @default(draft)
+  userId          Int?
+  intro           String?     @db.VarChar(255)
+  image           String?     @db.VarChar(255)
+  metaTitle       String?     @db.VarChar(255)
+  metaDescription String?     @db.VarChar(255)
+  keywords        String?     @db.VarChar(255)
+  user            Users?      @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict, map: "posts_ibfk_1")
+
+  @@index([userId], map: "idx_posts_user_id")
 }
 
-model OrderDetail {
-  id        String  @id @default(uuid())
-  orderId   String
-  productId String
+model Attachment {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  fileName  String   @db.VarChar(255)
+  fileUrl   String   @db.VarChar(512)
+  createdAt DateTime @default(now()) @db.Timestamp(0)
+  updatedAt DateTime @default(now()) @db.Timestamp(0)
+  user      Users    @relation(fields: [userId], references: [id], onUpdate: Restrict, map: "attachments_ibfk_1")
+
+  @@index([userId], map: "idx_attachments_user_id")
+}
+
+model OrderItem {
+  id        Int      @id @default(autoincrement())
+  orderId   Int
+  productId Int
   quantity  Int
-  price     Float
-  order     Order   @relation(fields: [orderId], references: [id])
-  product   Product @relation(fields: [productId], references: [id])
-}
+  price     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now()) @db.Timestamp(0)
+  Product   Product  @relation(fields: [productId], references: [id])
+  order     Order    @relation(fields: [orderId], references: [id], onUpdate: Restrict, map: "fk_order")
 
-model Media {
-  id        String  @id @default(uuid())
-  url       String
-  type      String
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
-}
-
-model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  orders    Order[]
-}
-
-model ShippingInfo {
-  id         String   @id @default(uuid())
-  address    String
-  city       String
-  postalCode String
-  country    String
-  phone      String
-  orderId    String   @unique
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  order      Order    @relation(fields: [orderId], references: [id])
+  @@index([productId], map: "idx_order_items_product_id")
+  @@index([orderId], map: "idx_order_items_order_id")
 }
 
 model Order {
-  id           String        @id @default(uuid())
-  userId       String
-  totalAmount  Float
-  status       OrderStatus   @default(pending)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  user         User          @relation(fields: [userId], references: [id])
-  orderDetails OrderDetail[]
-  shippingInfo ShippingInfo?
+  id            Int         @id @default(autoincrement())
+  userId        Int
+  total         Decimal     @db.Decimal(10, 2)
+  address       String
+  status        OrderStatus @default(pending)
+  paymentMethod String      @db.VarChar(50)
+  createdAt     DateTime    @default(now()) @db.Timestamp(0)
+  updatedAt     DateTime    @default(now()) @db.Timestamp(0)
+  phone         String      @db.VarChar(50)
+  orderItems    OrderItem[]
+
+  @@index([userId], map: "idx_orders_user_id")
+}
+
+enum PostStatus {
+  published
+  draft
 }
 
 enum OrderStatus {
   pending
-  paid
+  processing
   shipped
+  delivered
   cancelled
 }
